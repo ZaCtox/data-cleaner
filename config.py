@@ -1,0 +1,35 @@
+from pathlib import Path
+
+# ==========================================
+# Proyecto
+# ==========================================
+
+BASE_DIR = Path(__file__).resolve().parent
+
+# ==========================================
+# Carpetas
+# ==========================================
+
+ASSETS_DIR = BASE_DIR / "assets"
+OUTPUT_DIR = BASE_DIR / "output"
+TEMP_DIR = BASE_DIR / "temp"
+
+OUTPUT_DIR.mkdir(exist_ok=True)
+TEMP_DIR.mkdir(exist_ok=True)
+
+# ==========================================
+# Aplicación
+# ==========================================
+
+APP_NAME = "Data Cleaner"
+APP_VERSION = "0.1.0"
+
+# ==========================================
+# Ventana
+# ==========================================
+
+WINDOW_WIDTH = 900
+WINDOW_HEIGHT = 650
+
+WINDOW_MIN_WIDTH = 800
+WINDOW_MIN_HEIGHT = 600
