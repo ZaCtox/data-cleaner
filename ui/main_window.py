@@ -1,18 +1,30 @@
 from pathlib import Path
-from tkinter import filedialog
+import os
+import threading
+from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
+import pandas as pd
 
 from config import (
     APP_NAME,
     APP_VERSION,
+    DEFAULT_SPLIT_PARTS,
+    OUTPUT_DIR,
     WINDOW_HEIGHT,
     WINDOW_MIN_HEIGHT,
     WINDOW_MIN_WIDTH,
     WINDOW_WIDTH,
 )
 from models.column import Column
-from processors.csv_processor import obtener_info_csv, procesar_csv, procesar_csv_dividido
+from processors.csv_processor import (
+    ValidationError,
+    rutas_salida_esperadas,
+    cargar_csv,
+    procesar_csv,
+    procesar_csv_dividido,
+    validar_renombres,
+)
 
 # ---------------------------------------------------------------------------
 # Constantes
@@ -27,7 +39,6 @@ CSV_FILE_TYPES = [
 ]
 
 COLUMNS_FRAME_HEIGHT = 250
-DEFAULT_SPLIT_PARTS = "2"
 
 
 class MainWindow(ctk.CTk):
@@ -54,7 +65,10 @@ class MainWindow(ctk.CTk):
 
     def inicializar_variables(self) -> None:
         self.ruta_archivo: str | None = None
+        self.df: pd.DataFrame | None = None
         self.columnas: list[Column] = []
+        self.procesando = False
+        self.ultimas_rutas: list[Path] = []
 
     def crear_layout(self) -> None:
         self.grid_rowconfigure(0, weight=1)
@@ -63,6 +77,7 @@ class MainWindow(ctk.CTk):
         self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.main_frame.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
         self.main_frame.grid_columnconfigure(0, weight=1)
+        self.main_frame.grid_rowconfigure(3, weight=1)
 
     def crear_secciones(self) -> None:
         self.crear_header()
@@ -106,64 +121,23 @@ class MainWindow(ctk.CTk):
         self.lbl_archivo.grid(row=1, column=0, pady=(0, 20))
 
     def crear_info_section(self) -> None:
-
         self.info_frame = ctk.CTkFrame(self.main_frame)
-
-        self.info_frame.grid(
-            row=2,
-            column=0,
-            sticky="ew",
-            pady=(0, 15)
-        )
-
-        self.info_frame.grid_columnconfigure(0, weight=0)
-        self.info_frame.grid_columnconfigure(1, weight=0)
-        self.info_frame.grid_columnconfigure(2, weight=0)
+        self.info_frame.grid(row=2, column=0, sticky="ew", pady=(0, 15))
         self.info_frame.grid_columnconfigure(3, weight=1)
 
-        ctk.CTkLabel(
-            self.info_frame,
-            text="Total de registros:"
-        ).grid(
-            row=0,
-            column=0,
-            padx=15,
-            pady=10,
-            sticky="w"
+        ctk.CTkLabel(self.info_frame, text="Total de registros:").grid(
+            row=0, column=0, padx=15, pady=10, sticky="w"
         )
 
-        self.lbl_registros = ctk.CTkLabel(
-            self.info_frame,
-            text="-"
+        self.lbl_registros = ctk.CTkLabel(self.info_frame, text="-")
+        self.lbl_registros.grid(row=0, column=1, sticky="w")
+
+        ctk.CTkLabel(self.info_frame, text="Total de columnas:").grid(
+            row=1, column=0, padx=15, pady=10, sticky="w"
         )
 
-        self.lbl_registros.grid(
-            row=0,
-            column=1,
-            sticky="w"
-        )
-
-        ctk.CTkLabel(
-            self.info_frame,
-            text="Total de columnas:"
-        ).grid(
-            row=1,
-            column=0,
-            padx=15,
-            pady=10,
-            sticky="w"
-        )
-
-        self.lbl_columnas = ctk.CTkLabel(
-            self.info_frame,
-            text="-"
-        )
-
-        self.lbl_columnas.grid(
-            row=1,
-            column=1,
-            sticky="w"
-        )
+        self.lbl_columnas = ctk.CTkLabel(self.info_frame, text="-")
+        self.lbl_columnas.grid(row=1, column=1, sticky="w")
 
         self.chk_dividir = ctk.BooleanVar(value=False)
 
@@ -171,56 +145,32 @@ class MainWindow(ctk.CTk):
             self.info_frame,
             text="Dividir archivo",
             variable=self.chk_dividir,
-            command=self.cambiar_estado_division
+            command=self.cambiar_estado_division,
         )
+        self.ck_dividir.grid(row=2, column=0, padx=15, pady=15, sticky="w")
 
-        self.ck_dividir.grid(
-            row=2,
-            column=0,
-            padx=15,
-            pady=15,
-            sticky="w"
-        )
-
-        ctk.CTkLabel(
-            self.info_frame,
-            text="Cantidad:"
-        ).grid(
-            row=2,
-            column=1,
-            padx=(5, 5),
-            sticky="e"
+        ctk.CTkLabel(self.info_frame, text="Cantidad:").grid(
+            row=2, column=1, padx=(5, 5), sticky="e"
         )
 
         self.combo_divisiones = ctk.CTkComboBox(
             self.info_frame,
             values=[str(i) for i in range(2, 6)],
             width=80,
-            state="disabled"
+            state="disabled",
         )
+        self.combo_divisiones.set(DEFAULT_SPLIT_PARTS)
+        self.combo_divisiones.grid(row=2, column=2, sticky="w")
 
-        self.combo_divisiones.set("2")
-
-        self.combo_divisiones.grid(
-            row=2,
-            column=2,
-            sticky="w"
-        )
-        
     def cambiar_estado_division(self) -> None:
-
-        estado = (
-            "readonly"
-            if self.chk_dividir.get()
-            else "disabled"
-        )
-
+        estado = "normal" if self.chk_dividir.get() else "disabled"
         self.combo_divisiones.configure(state=estado)
 
     def crear_columns_section(self) -> None:
         self.columns_frame = ctk.CTkFrame(self.main_frame)
         self.columns_frame.grid(row=3, column=0, sticky="nsew", pady=(0, 15))
         self.columns_frame.grid_columnconfigure(0, weight=1)
+        self.columns_frame.grid_rowconfigure(1, weight=1)
 
         self.lbl_columns = ctk.CTkLabel(
             self.columns_frame,
@@ -253,7 +203,7 @@ class MainWindow(ctk.CTk):
             padx=20,
             pady=(0, 20),
         )
-        self.buttons_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        self.buttons_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
         self.btn_seleccionar_todo = ctk.CTkButton(
             self.buttons_frame,
@@ -275,6 +225,14 @@ class MainWindow(ctk.CTk):
             command=self.procesar,
         )
         self.btn_procesar.grid(row=0, column=2, padx=5)
+
+        self.btn_abrir_output = ctk.CTkButton(
+            self.buttons_frame,
+            text="Abrir carpeta output",
+            command=self.abrir_carpeta_output,
+            state="disabled",
+        )
+        self.btn_abrir_output.grid(row=0, column=3, padx=5)
 
     def crear_footer(self) -> None:
         self.footer_frame = ctk.CTkFrame(self.main_frame)
@@ -308,83 +266,146 @@ class MainWindow(ctk.CTk):
 
         self.ruta_archivo = ruta_archivo
         self.lbl_archivo.configure(text=Path(ruta_archivo).name)
-        self.lbl_estado.configure(text="Leyendo columnas...")
+        self.lbl_estado.configure(text="Leyendo archivo...")
+        self._habilitar_controles(False)
 
-        try:
-            info = obtener_info_csv(ruta_archivo)
+        def worker() -> None:
+            try:
+                info, df = cargar_csv(ruta_archivo)
+                self.after(0, lambda: self._on_archivo_cargado(info, df))
+            except Exception as error:
+                self.after(0, lambda: self._on_archivo_error(str(error)))
 
-            self.lbl_registros.configure(text=f"{info['registros']:,}")
-            self.lbl_columnas.configure(text=str(len(info["columnas"])))
-            self.mostrar_columnas(info["columnas"])
-            self.lbl_estado.configure(text="Archivo cargado correctamente.")
+        threading.Thread(target=worker, daemon=True).start()
 
-        except Exception as error:
-            self.ruta_archivo = None
-            self.lbl_archivo.configure(text="Ningún archivo seleccionado")
-            self.mostrar_columnas([])
-            self.lbl_registros.configure(text="-")
-            self.lbl_columnas.configure(text="-")
-            self.lbl_estado.configure(text=f"Error al leer el archivo: {error}")
+    def _on_archivo_cargado(self, info: dict, df: pd.DataFrame) -> None:
+        self.df = df
+        self.lbl_registros.configure(text=f"{info['registros']:,}")
+        self.lbl_columnas.configure(text=str(len(info["columnas"])))
+        self.mostrar_columnas(info["columnas"])
+        self.lbl_estado.configure(text="Archivo cargado correctamente.")
+        self._habilitar_controles(True)
+
+    def _on_archivo_error(self, mensaje: str) -> None:
+        self.ruta_archivo = None
+        self.df = None
+        self.lbl_archivo.configure(text="Ningún archivo seleccionado")
+        self.mostrar_columnas([])
+        self.lbl_registros.configure(text="-")
+        self.lbl_columnas.configure(text="-")
+        self.lbl_estado.configure(text=f"Error al leer el archivo: {mensaje}")
+        self._habilitar_controles(True)
 
     def procesar(self) -> None:
+        if self.procesando:
+            return
 
-        if self.ruta_archivo is None:
-            self.lbl_estado.configure(
-                text="Debe seleccionar un archivo CSV."
-            )
+        if self.ruta_archivo is None or self.df is None:
+            self.lbl_estado.configure(text="Debe seleccionar un archivo CSV.")
             return
 
         columnas = self.obtener_columnas_seleccionadas()
         renombres = self.obtener_renombres()
 
         if not columnas:
-            self.lbl_estado.configure(
-                text="Debe seleccionar al menos una columna."
-            )
+            self.lbl_estado.configure(text="Debe seleccionar al menos una columna.")
             return
 
-        self.lbl_estado.configure(
-            text="Procesando archivo..."
-        )
-
-        self.update_idletasks()
-
         try:
+            validar_renombres(renombres)
+        except ValidationError as error:
+            self.lbl_estado.configure(text=str(error))
+            return
 
-            if self.chk_dividir.get():
+        dividir = self.chk_dividir.get()
+        cantidad = int(self.combo_divisiones.get()) if dividir else 1
 
-                cantidad  = int(
-                    self.combo_divisiones.get()
-                )
+        rutas_esperadas = rutas_salida_esperadas(
+            self.ruta_archivo,
+            cantidad if dividir else 1,
+        )
+        existentes = [ruta for ruta in rutas_esperadas if ruta.exists()]
 
-                procesar_csv_dividido(
-                    self.ruta_archivo,
-                    columnas,
-                    renombres,
-                    cantidad 
-                )
-
-                self.lbl_estado.configure(
-                    text=f"Se generaron {cantidad } archivos."
-                )
-
-            else:
-
-                ruta_salida = procesar_csv(
-                    self.ruta_archivo,
-                    columnas,
-                    renombres
-                )
-
-                self.lbl_estado.configure(
-                    text=f"Archivo generado: {ruta_salida.name}"
-                )
-
-        except Exception as error:
-
-            self.lbl_estado.configure(
-                text=f"Error al procesar: {error}"
+        sobrescribir = False
+        if existentes:
+            nombres = ", ".join(ruta.name for ruta in existentes)
+            confirmar = messagebox.askyesno(
+                "Archivos existentes",
+                f"Ya existen estos archivos:\n{nombres}\n\n¿Deseas sobrescribirlos?",
             )
+            if not confirmar:
+                self.lbl_estado.configure(text="Procesamiento cancelado.")
+                return
+            sobrescribir = True
+
+        self.procesando = True
+        self.lbl_estado.configure(text="Procesando archivo...")
+        self._habilitar_controles(False)
+
+        df = self.df
+        ruta_archivo = self.ruta_archivo
+
+        def worker() -> None:
+            try:
+                if dividir:
+                    rutas = procesar_csv_dividido(
+                        df,
+                        ruta_archivo,
+                        columnas,
+                        renombres,
+                        cantidad,
+                        sobrescribir=sobrescribir,
+                    )
+                    self.after(0, lambda: self._on_proceso_ok_dividido(rutas))
+                else:
+                    ruta = procesar_csv(
+                        df,
+                        ruta_archivo,
+                        columnas,
+                        renombres,
+                        sobrescribir=sobrescribir,
+                    )
+                    self.after(0, lambda: self._on_proceso_ok(ruta))
+            except Exception as error:
+                self.after(0, lambda: self._on_proceso_error(str(error)))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_proceso_ok(self, ruta: Path) -> None:
+        self.procesando = False
+        self.ultimas_rutas = [ruta]
+        self.lbl_estado.configure(text=f"Archivo generado: {ruta.name}")
+        self.btn_abrir_output.configure(state="normal")
+        self._habilitar_controles(True)
+
+    def _on_proceso_ok_dividido(self, rutas: list[Path]) -> None:
+        self.procesando = False
+        self.ultimas_rutas = rutas
+        self.lbl_estado.configure(text=f"Se generaron {len(rutas)} archivos.")
+        self.btn_abrir_output.configure(state="normal")
+        self._habilitar_controles(True)
+
+    def _on_proceso_error(self, mensaje: str) -> None:
+        self.procesando = False
+        self.lbl_estado.configure(text=f"Error al procesar: {mensaje}")
+        self._habilitar_controles(True)
+
+    def abrir_carpeta_output(self) -> None:
+        os.startfile(OUTPUT_DIR)
+
+    def _habilitar_controles(self, habilitado: bool) -> None:
+        estado = "normal" if habilitado else "disabled"
+
+        self.btn_archivo.configure(state=estado)
+        self.btn_procesar.configure(state=estado)
+        self.btn_seleccionar_todo.configure(state=estado)
+        self.btn_deseleccionar_todo.configure(state=estado)
+        self.ck_dividir.configure(state=estado)
+
+        if self.chk_dividir.get():
+            self.combo_divisiones.configure(state=estado)
+        else:
+            self.combo_divisiones.configure(state="disabled")
 
     # -----------------------------------------------------------------------
     # Gestión de columnas
@@ -486,7 +507,7 @@ class MainWindow(ctk.CTk):
 
     def obtener_renombres(self) -> dict[str, str]:
         return {
-            columna.original: columna.entry.get()
+            columna.original: columna.entry.get().strip()
             for columna in self.columnas
             if columna.checkbox.get()
         }

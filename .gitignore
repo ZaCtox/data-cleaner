@@ -5,17 +5,19 @@ __pycache__/
 
 # Entornos virtuales
 .venv/
+.venv-build/
 venv/
 env/
 
-# VS Code
+# IDE
 .vscode/
-
-# Archivos temporales
-temp/
 
 # Archivos generados
 output/
+
+# Build PyInstaller
+build/
+dist/
 
 # Sistema
 .DS_Store
