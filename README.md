@@ -1,10 +1,19 @@
+![Version](https://img.shields.io/badge/version-0.3.1-blue)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 # Data Cleaner
 
-Herramienta desarrollada en Python para facilitar la limpieza de archivos CSV mediante una interfaz gráfica.
+Herramienta de escritorio desarrollada en Python para limpiar y preparar archivos CSV y Excel mediante una interfaz gráfica.
+
+<p align="center">
+  <img src="assets/screenshot.png" width="900">
+</p>
 
 ## Funcionalidades
 
-- Seleccionar archivos CSV (codificación y separador detectados automáticamente).
+- Seleccionar archivos CSV y Excel (`.csv`, `.xlsx` y `.xls`).
+- Detectar automáticamente la codificación y el separador de archivos CSV.
 - Mostrar total de registros y columnas.
 - Seleccionar qué columnas exportar.
 - Renombrar columnas antes de exportar.
@@ -23,8 +32,8 @@ Herramienta desarrollada en Python para facilitar la limpieza de archivos CSV me
 1. Clona el repositorio:
 
 ```bash
-git clone https://github.com/ZaCtox/data_cleaner.git
-cd data_cleaner
+git clone https://github.com/ZaCtox/data-cleaner.git
+cd data-cleaner
 ```
 
 2. Crea y activa un entorno virtual (recomendado):
@@ -53,7 +62,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-1. Haz clic en **Seleccionar CSV** y elige tu archivo.
+1. Haz clic en **Seleccionar archivo** y elige el CSV o Excel.
 2. Marca o desmarca las columnas que quieras conservar.
 3. Renombra columnas si lo necesitas.
 4. Usa **Seleccionar todo** / **Deseleccionar todo** si lo necesitas.
@@ -71,7 +80,9 @@ Para generar un `.exe` liviano con solo las dependencias necesarias:
 .\build.ps1
 ```
 
-Esto crea un entorno virtual limpio (`.venv-build/`), instala solo `customtkinter` y `pandas`, y compila con PyInstaller.
+Esto crea un entorno virtual limpio (`.venv-build/`), instala las
+dependencias de ejecución y compilación, y genera el ejecutable con
+PyInstaller.
 
 El ejecutable queda en:
 
@@ -110,7 +121,21 @@ data_cleaner/
 - [Python](https://www.python.org/)
 - [Pandas](https://pandas.pydata.org/)
 - [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter)
+- [PyInstaller](https://pyinstaller.org/)
+
+## Historial de cambios
+
+Consulta el archivo [CHANGELOG.md](CHANGELOG.md) para conocer el historial de versiones y las mejoras incorporadas en cada actualización.
 
 ## Licencia
 
 Este proyecto está bajo la licencia MIT. Consulta el archivo [LICENSE](LICENSE) para más detalles.
+
+## Roadmap
+
+- [x] Limpieza de CSV
+- [x] Soporte para Excel
+- [x] División de archivos
+- [ ] Perfiles para Mailjet
+- [ ] Vista previa de datos
+- [ ] Reordenamiento mediante Drag & Drop
