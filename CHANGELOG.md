@@ -7,6 +7,24 @@ y este proyecto sigue el versionado semántico.
 
 ---
 
+## [0.4.0] - 2026-08-18
+
+### Agregado
+- Nuevo modo de procesamiento Genérico.
+- El modo Genérico selecciona automáticamente las columnas nombre, email y token.
+- Orden automático de las columnas nombre, email y token en el modo Genérico.
+- Validación de columnas requeridas antes de activar el modo Genérico.
+- Nuevo modo Personalizado para mantener el control manual sobre selección, renombrado y orden de columnas.
+- Selector de modo de procesamiento mediante botones de opción.
+
+### Mejorado
+- Los controles de selección, renombrado y reordenamiento se bloquean automáticamente cuando se utiliza el modo Genérico.
+- La división de archivos entre 2 y 5 partes está disponible tanto en modo Genérico como Personalizado.
+- El estado del procesamiento muestra la cantidad de archivos generados.
+- La interfaz reorganiza las opciones de procesamiento antes de la configuración de columnas.
+
+---
+
 ## [0.3.1] - 2026-07-29
 
 ### Agregado

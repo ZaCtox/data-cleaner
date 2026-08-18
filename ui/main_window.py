@@ -67,6 +67,7 @@ class MainWindow(ctk.CTk):
         self.ruta_archivo: str | None = None
         self.df: pd.DataFrame | None = None
         self.columnas: list[Column] = []
+        self.modo_procesamiento = ctk.StringVar(value="personalizado")
         self.procesando = False
         self.ultimas_rutas: list[Path] = []
 
@@ -77,12 +78,13 @@ class MainWindow(ctk.CTk):
         self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.main_frame.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
         self.main_frame.grid_columnconfigure(0, weight=1)
-        self.main_frame.grid_rowconfigure(3, weight=1)
+        self.main_frame.grid_rowconfigure(4, weight=1)
 
     def crear_secciones(self) -> None:
         self.crear_header()
         self.crear_file_section()
         self.crear_info_section()
+        self.crear_modo_section()
         self.crear_columns_section()
         self.crear_footer()
 
@@ -165,10 +167,66 @@ class MainWindow(ctk.CTk):
     def cambiar_estado_division(self) -> None:
         estado = "normal" if self.chk_dividir.get() else "disabled"
         self.combo_divisiones.configure(state=estado)
+        
+    def crear_modo_section(self) -> None:
 
+        self.modo_frame = ctk.CTkFrame(self.main_frame)
+
+        self.modo_frame.grid(
+            row=3,
+            column=0,
+            sticky="ew",
+            pady=(0, 15),
+        )
+
+        self.modo_frame.grid_columnconfigure((0, 1), weight=1)
+
+        titulo = ctk.CTkLabel(
+            self.modo_frame,
+            text="Modo de procesamiento",
+            font=FONT_SECTION,
+        )
+
+        titulo.grid(
+            row=0,
+            column=0,
+            columnspan=2,
+            pady=(15, 10),
+        )
+
+        self.radio_generico = ctk.CTkRadioButton(
+            self.modo_frame,
+            text="Genérico",
+            variable=self.modo_procesamiento,
+            value="generico",
+            command=self.cambiar_modo,
+        )
+
+        self.radio_generico.grid(
+            row=1,
+            column=0,
+            padx=20,
+            pady=(5, 15),
+        )
+
+        self.radio_personalizado = ctk.CTkRadioButton(
+            self.modo_frame,
+            text="Personalizado",
+            variable=self.modo_procesamiento,
+            value="personalizado",
+            command=self.cambiar_modo,
+        )
+
+        self.radio_personalizado.grid(
+            row=1,
+            column=1,
+            padx=20,
+            pady=(5, 15),
+        )
+        
     def crear_columns_section(self) -> None:
         self.columns_frame = ctk.CTkFrame(self.main_frame)
-        self.columns_frame.grid(row=3, column=0, sticky="nsew", pady=(0, 15))
+        self.columns_frame.grid(row=4, column=0, sticky="nsew", pady=(0, 15))
         self.columns_frame.grid_columnconfigure(0, weight=1)
         self.columns_frame.grid_rowconfigure(1, weight=1)
 
@@ -236,7 +294,7 @@ class MainWindow(ctk.CTk):
 
     def crear_footer(self) -> None:
         self.footer_frame = ctk.CTkFrame(self.main_frame)
-        self.footer_frame.grid(row=4, column=0, sticky="ew")
+        self.footer_frame.grid(row=5, column=0, sticky="ew")
         self.footer_frame.grid_columnconfigure(1, weight=1)
 
         self.lbl_estado_titulo = ctk.CTkLabel(
@@ -250,10 +308,88 @@ class MainWindow(ctk.CTk):
             text="Esperando selección de archivo.",
         )
         self.lbl_estado.grid(row=0, column=1, sticky="w")
-
+        
     # -----------------------------------------------------------------------
     # Eventos
     # -----------------------------------------------------------------------
+
+    def cambiar_modo(self) -> None:
+
+        if self.modo_procesamiento.get() == "generico":
+            self.aplicar_modo_generico()
+        else:
+            self.habilitar_modo_personalizado()
+
+        self.dibujar_columnas()
+
+        if self.modo_procesamiento.get() == "generico":
+            self.btn_seleccionar_todo.configure(state="disabled")
+            self.btn_deseleccionar_todo.configure(state="disabled")
+        else:
+            self.btn_seleccionar_todo.configure(state="normal")
+            self.btn_deseleccionar_todo.configure(state="normal")
+
+
+    def aplicar_modo_generico(self) -> None:
+
+        columnas_genericas = ["nombre", "email", "token"]
+
+        disponibles = {
+            columna.original.lower(): columna
+            for columna in self.columnas
+        }
+
+        faltantes = [
+            nombre
+            for nombre in columnas_genericas
+            if nombre not in disponibles
+        ]
+
+        if faltantes:
+            self.lbl_estado.configure(
+                text=(
+                    "Modo Genérico no disponible. "
+                    f"Faltan columnas: {', '.join(faltantes)}"
+                )
+            )
+
+            self.modo_procesamiento.set("personalizado")
+            return
+
+        # Desmarcar todas
+        for columna in self.columnas:
+            columna.checkbox.set(False)
+
+        seleccionadas = []
+
+        # Seleccionar y ordenar nombre, email, token
+        for nombre in columnas_genericas:
+
+            columna = disponibles[nombre]
+
+            columna.checkbox.set(True)
+            columna.entry.set(nombre)
+
+            seleccionadas.append(columna)
+
+        restantes = [
+            columna
+            for columna in self.columnas
+            if columna not in seleccionadas
+        ]
+
+        self.columnas = seleccionadas + restantes
+
+        self.lbl_estado.configure(
+            text="Modo Genérico aplicado: nombre, email y token."
+        )
+
+
+    def habilitar_modo_personalizado(self) -> None:
+
+        self.lbl_estado.configure(
+            text="Modo Personalizado activado."
+        )
 
     def seleccionar_archivo(self) -> None:
         ruta_archivo = filedialog.askopenfilename(
@@ -283,6 +419,9 @@ class MainWindow(ctk.CTk):
         self.lbl_registros.configure(text=f"{info['registros']:,}")
         self.lbl_columnas.configure(text=str(len(info["columnas"])))
         self.mostrar_columnas(info["columnas"])
+        if self.modo_procesamiento.get() == "generico":
+            self.aplicar_modo_generico()
+            self.dibujar_columnas()
         self.lbl_estado.configure(text="Archivo cargado correctamente.")
         self._habilitar_controles(True)
 
@@ -429,7 +568,9 @@ class MainWindow(ctk.CTk):
     def dibujar_columnas(self) -> None:
         for widget in self.checkboxes_frame.winfo_children():
             widget.destroy()
-
+        es_generico = self.modo_procesamiento.get() == "generico"
+        estado = "disabled" if es_generico else "normal"
+        
         for fila, columna in enumerate(self.columnas):
             frame = ctk.CTkFrame(self.checkboxes_frame)
             frame.grid(row=fila, column=0, sticky="ew", padx=5, pady=5)
@@ -440,6 +581,7 @@ class MainWindow(ctk.CTk):
                 text="",
                 variable=columna.checkbox,
                 width=25,
+                state=estado,
             )
             checkbox.grid(row=0, column=0, padx=(10, 5), pady=8)
 
@@ -451,13 +593,14 @@ class MainWindow(ctk.CTk):
             )
             lbl.grid(row=0, column=1, sticky="w", padx=5)
 
-            entry = ctk.CTkEntry(frame, textvariable=columna.entry)
+            entry = ctk.CTkEntry(frame, textvariable=columna.entry, state=estado)
             entry.grid(row=0, column=2, sticky="ew", padx=5)
 
             btn_up = ctk.CTkButton(
                 frame,
                 text="▲",
                 width=35,
+                state=estado,
                 command=lambda i=fila: self.subir_columna(i),
             )
             btn_up.grid(row=0, column=3, padx=(5, 2))
@@ -466,6 +609,7 @@ class MainWindow(ctk.CTk):
                 frame,
                 text="▼",
                 width=35,
+                state=estado,
                 command=lambda i=fila: self.bajar_columna(i),
             )
             btn_down.grid(row=0, column=4, padx=(2, 10))

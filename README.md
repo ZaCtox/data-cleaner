@@ -1,4 +1,4 @@
-![Version](https://img.shields.io/badge/version-0.3.1-blue)
+![Version](https://img.shields.io/badge/version-0.4.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -16,6 +16,8 @@ Herramienta de escritorio desarrollada en Python para limpiar y preparar archivo
 - Detectar automáticamente la codificación y el separador de archivos CSV.
 - Mostrar total de registros y columnas.
 - Seleccionar qué columnas exportar.
+- Modo **Genérico** para seleccionar automáticamente `nombre`, `email` y `token` en el orden requerido.
+- Modo **Personalizado** para seleccionar, renombrar y reordenar columnas manualmente.
 - Renombrar columnas antes de exportar.
 - Reordenar columnas con los botones ▲ / ▼.
 - Dividir el archivo en 2 a 5 partes.
