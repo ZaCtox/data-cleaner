@@ -1,4 +1,4 @@
-![Version](https://img.shields.io/badge/version-0.4.0-blue)
+![Version](https://img.shields.io/badge/version-0.4.1-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -6,8 +6,18 @@
 
 Herramienta de escritorio desarrollada en Python para limpiar y preparar archivos CSV y Excel mediante una interfaz gráfica.
 
+## Interfaz
+
+### Preparar archivo
+
 <p align="center">
-  <img src="assets/screenshot.png" width="900">
+  <img src="assets/screen1.png" width="900" alt="Preparar archivo">
+</p>
+
+### Extraer token
+
+<p align="center">
+  <img src="assets/screen2.png" width="900" alt="Extraer token">
 </p>
 
 ## Funcionalidades
@@ -18,7 +28,7 @@ Herramienta de escritorio desarrollada en Python para limpiar y preparar archivo
 - Seleccionar qué columnas exportar.
 - Modo **Genérico** para seleccionar automáticamente `nombre`, `email` y `token` en el orden requerido.
 - Modo **Personalizado** para seleccionar, renombrar y reordenar columnas manualmente.
-- Extraer tokens de una columna para poder rastrear y exluirlos de otro archivo.
+- Extraer tokens desde enlaces y generar un archivo con las columnas `numero` y `token`.
 - Renombrar columnas antes de exportar.
 - Reordenar columnas con los botones ▲ / ▼.
 - Dividir el archivo en 2 a 5 partes.
@@ -105,18 +115,25 @@ Los CSV procesados se guardan en `output/` **junto al .exe** (puedes mover `Data
 
 ```
 data_cleaner/
-├── main.py                  # Punto de entrada
-├── config.py                # Configuración de la aplicación
-├── build.ps1                # Script para generar el .exe
-├── DataCleaner.spec         # Configuración PyInstaller
+├── main.py                      # Punto de entrada
+├── config.py                    # Configuración de la aplicación
+├── build.ps1                    # Script para generar el .exe
+├── DataCleaner.spec             # Configuración PyInstaller
+├── assets/                      # Imágenes e iconos
 ├── ui/
-│   └── main_window.py       # Interfaz gráfica
+│   ├── __init__.py
+│   └── main_window.py           # Interfaz gráfica
 ├── processors/
-│   └── csv_processor.py     # Lógica de procesamiento CSV
+│   ├── __init__.py
+│   ├── csv_processor.py         # Lectura y procesamiento de archivos
+│   └── token_extractor.py       # Extracción de tokens
 ├── models/
-│   └── column.py            # Modelo de columna
-├── output/                  # Archivos generados (ignorado por git)
-└── requirements.txt
+│   ├── __init__.py
+│   └── column.py                # Modelo de columna
+├── output/                      # Archivos generados (ignorado por git)
+├── requirements.txt
+└── requirements-dev.txt
+
 ```
 
 ## Tecnologías
@@ -136,9 +153,12 @@ Este proyecto está bajo la licencia MIT. Consulta el archivo [LICENSE](LICENSE)
 
 ## Roadmap
 
-- [x] Limpieza de CSV
-- [x] Soporte para Excel
+- [x] Limpieza y preparación de CSV
+- [x] Soporte de entrada para Excel
 - [x] División de archivos
+- [x] Modo Genérico y Personalizado
+- [x] Extracción de tokens
+- [ ] Cruce y exclusión de tokens entre archivos
 - [ ] Perfiles para Mailjet
 - [ ] Vista previa de datos
 - [ ] Reordenamiento mediante Drag & Drop
