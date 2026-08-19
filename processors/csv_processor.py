@@ -7,7 +7,7 @@ import pandas as pd
 from config import CSV_ENCODINGS_TO_TRY, OUTPUT_DIR, OUTPUT_ENCODING
 
 
-class CsvInfo(TypedDict):
+class FileInfo(TypedDict):
     registros: int
     columnas: list[str]
 
@@ -55,20 +55,54 @@ def validar_renombres(renombres: dict[str, str]) -> None:
         raise ValidationError("Hay nombres de columna duplicados.")
 
 
-def cargar_csv(ruta_archivo: str) -> tuple[CsvInfo, pd.DataFrame]:
-    """Carga el CSV detectando codificación y separador automáticamente."""
-    encoding = detectar_encoding(ruta_archivo)
-    separador = detectar_separador(ruta_archivo, encoding)
+def cargar_archivo(
+    ruta_archivo: str
+) -> tuple[FileInfo, pd.DataFrame]:
+    """
+    Carga archivos CSV o Excel.
 
-    df = pd.read_csv(ruta_archivo, encoding=encoding, sep=separador)
+    CSV:
+    - Detecta codificación.
+    - Detecta separador.
 
-    info: CsvInfo = {
+    Excel:
+    - Lee directamente con pandas.
+    """
+
+    ruta = Path(ruta_archivo)
+    extension = ruta.suffix.lower()
+
+    if extension == ".csv":
+
+        encoding = detectar_encoding(ruta_archivo)
+        separador = detectar_separador(
+            ruta_archivo,
+            encoding
+        )
+
+        df = pd.read_csv(
+            ruta_archivo,
+            encoding=encoding,
+            sep=separador
+        )
+
+    elif extension in {".xlsx", ".xls"}:
+
+        df = pd.read_excel(
+            ruta_archivo
+        )
+
+    else:
+        raise ValueError(
+            f"Formato no compatible: {extension}"
+        )
+
+    info: FileInfo = {
         "registros": len(df),
         "columnas": df.columns.tolist(),
     }
 
     return info, df
-
 
 def _preparar_dataframe(
     df: pd.DataFrame,

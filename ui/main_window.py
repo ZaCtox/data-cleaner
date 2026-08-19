@@ -19,13 +19,13 @@ from config import (
 from models.column import Column
 from processors.csv_processor import (
     ValidationError,
+    cargar_archivo,
     rutas_salida_esperadas,
-    cargar_csv,
     procesar_csv,
     procesar_csv_dividido,
     validar_renombres,
 )
-
+from processors.token_extractor import generar_archivo_tokens
 # ---------------------------------------------------------------------------
 # Constantes
 # ---------------------------------------------------------------------------
@@ -33,9 +33,11 @@ from processors.csv_processor import (
 FONT_TITLE = ("Segoe UI", 26, "bold")
 FONT_SECTION = ("Segoe UI", 18, "bold")
 
-CSV_FILE_TYPES = [
-    ("Archivos CSV", "*.csv"),
+DATA_FILE_TYPES = [
     ("Todos los archivos", "*.*"),
+    ("Archivos CSV", "*.csv"),
+    ("Archivos Excel", "*.xlsx"),
+    ("Archivos Excel 97-2003", "*.xls"),
 ]
 
 COLUMNS_FRAME_HEIGHT = 250
@@ -70,48 +72,122 @@ class MainWindow(ctk.CTk):
         self.modo_procesamiento = ctk.StringVar(value="personalizado")
         self.procesando = False
         self.ultimas_rutas: list[Path] = []
+        
+        # Variables para la sección de token
+        self.ruta_archivo_token: str | None = None
+        self.df_token: pd.DataFrame | None = None
 
     def crear_layout(self) -> None:
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_frame.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
+        # Contenedor principal de toda la aplicación
+        self.main_frame = ctk.CTkFrame(
+            self,
+            fg_color="transparent"
+        )
+
+        self.main_frame.grid(
+            row=0,
+            column=0,
+            sticky="nsew",
+            padx=20,
+            pady=20
+        )
+
+        self.main_frame.grid_rowconfigure(1, weight=1)
         self.main_frame.grid_columnconfigure(0, weight=1)
-        self.main_frame.grid_rowconfigure(4, weight=1)
+
+        # Header general
+        self.crear_header()
+
+        # Pestañas
+        self.tabview = ctk.CTkTabview(
+            self.main_frame
+        )
+
+        self.tabview.grid(
+            row=1,
+            column=0,
+            sticky="nsew"
+        )
+
+        # Crear pestañas
+        self.tab_preparar = self.tabview.add(
+            "Preparar archivo"
+        )
+
+        self.tab_tokens = self.tabview.add(
+            "Extraer token"
+        )
+
+        # Configurar pestaña Preparar archivo
+        self.tab_preparar.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        self.tab_preparar.grid_rowconfigure(
+            3,
+            weight=1
+        )
+
+        # Configurar pestaña Extraer token
+        self.tab_tokens.grid_columnconfigure(
+            0,
+            weight=1
+        )
 
     def crear_secciones(self) -> None:
-        self.crear_header()
         self.crear_file_section()
         self.crear_info_section()
         self.crear_modo_section()
         self.crear_columns_section()
         self.crear_footer()
 
+        self.crear_token_section()
+
     # -----------------------------------------------------------------------
     # Construcción de interfaz
     # -----------------------------------------------------------------------
 
     def crear_header(self) -> None:
-        self.header_frame = ctk.CTkFrame(self.main_frame)
-        self.header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 15))
-        self.header_frame.grid_columnconfigure(0, weight=1)
+        self.header_frame = ctk.CTkFrame(
+            self.main_frame
+        )
+
+        self.header_frame.grid(
+            row=0,
+            column=0,
+            sticky="ew",
+            pady=(0, 15)
+        )
+
+        self.header_frame.grid_columnconfigure(
+            0,
+            weight=1
+        )
 
         self.lbl_titulo = ctk.CTkLabel(
             self.header_frame,
             text=APP_NAME,
             font=FONT_TITLE,
         )
-        self.lbl_titulo.grid(row=0, column=0, pady=15)
+
+        self.lbl_titulo.grid(
+            row=0,
+            column=0,
+            pady=15
+        )
 
     def crear_file_section(self) -> None:
-        self.file_frame = ctk.CTkFrame(self.main_frame)
-        self.file_frame.grid(row=1, column=0, sticky="ew", pady=(0, 15))
+        self.file_frame = ctk.CTkFrame(self.tab_preparar)
+        self.file_frame.grid(row=0, column=0, sticky="ew", pady=(0, 15))
         self.file_frame.grid_columnconfigure(0, weight=1)
 
         self.btn_archivo = ctk.CTkButton(
             self.file_frame,
-            text="Seleccionar CSV",
+            text="Seleccionar archivo",
             command=self.seleccionar_archivo,
         )
         self.btn_archivo.grid(row=0, column=0, pady=(20, 10))
@@ -123,8 +199,8 @@ class MainWindow(ctk.CTk):
         self.lbl_archivo.grid(row=1, column=0, pady=(0, 20))
 
     def crear_info_section(self) -> None:
-        self.info_frame = ctk.CTkFrame(self.main_frame)
-        self.info_frame.grid(row=2, column=0, sticky="ew", pady=(0, 15))
+        self.info_frame = ctk.CTkFrame(self.tab_preparar)
+        self.info_frame.grid(row=1, column=0, sticky="ew", pady=(0, 15))
         self.info_frame.grid_columnconfigure(3, weight=1)
 
         ctk.CTkLabel(self.info_frame, text="Total de registros:").grid(
@@ -170,10 +246,10 @@ class MainWindow(ctk.CTk):
         
     def crear_modo_section(self) -> None:
 
-        self.modo_frame = ctk.CTkFrame(self.main_frame)
+        self.modo_frame = ctk.CTkFrame(self.tab_preparar)
 
         self.modo_frame.grid(
-            row=3,
+            row=2,
             column=0,
             sticky="ew",
             pady=(0, 15),
@@ -225,8 +301,8 @@ class MainWindow(ctk.CTk):
         )
         
     def crear_columns_section(self) -> None:
-        self.columns_frame = ctk.CTkFrame(self.main_frame)
-        self.columns_frame.grid(row=4, column=0, sticky="nsew", pady=(0, 15))
+        self.columns_frame = ctk.CTkFrame(self.tab_preparar)
+        self.columns_frame.grid(row=3, column=0, sticky="nsew", pady=(0, 15))
         self.columns_frame.grid_columnconfigure(0, weight=1)
         self.columns_frame.grid_rowconfigure(1, weight=1)
 
@@ -293,8 +369,8 @@ class MainWindow(ctk.CTk):
         self.btn_abrir_output.grid(row=0, column=3, padx=5)
 
     def crear_footer(self) -> None:
-        self.footer_frame = ctk.CTkFrame(self.main_frame)
-        self.footer_frame.grid(row=5, column=0, sticky="ew")
+        self.footer_frame = ctk.CTkFrame(self.tab_preparar)
+        self.footer_frame.grid(row=4, column=0, sticky="ew")
         self.footer_frame.grid_columnconfigure(1, weight=1)
 
         self.lbl_estado_titulo = ctk.CTkLabel(
@@ -308,6 +384,136 @@ class MainWindow(ctk.CTk):
             text="Esperando selección de archivo.",
         )
         self.lbl_estado.grid(row=0, column=1, sticky="w")
+        
+    def crear_token_section(self) -> None:
+
+        self.token_file_frame = ctk.CTkFrame(
+            self.tab_tokens
+        )
+
+        self.token_file_frame.grid(
+            row=0,
+            column=0,
+            sticky="ew",
+            padx=15,
+            pady=15
+        )
+
+        self.token_file_frame.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        self.btn_token_archivo = ctk.CTkButton(
+            self.token_file_frame,
+            text="Seleccionar archivo",
+            command=self.seleccionar_archivo_token
+        )
+
+        self.btn_token_archivo.grid(
+            row=0,
+            column=0,
+            pady=(15, 10)
+        )
+
+        self.lbl_token_archivo = ctk.CTkLabel(
+            self.token_file_frame,
+            text="Ningún archivo seleccionado"
+        )
+
+        self.lbl_token_archivo.grid(
+            row=1,
+            column=0,
+            pady=(0, 15)
+        )
+
+        self.token_config_frame = ctk.CTkFrame(
+            self.tab_tokens
+        )
+
+        self.token_config_frame.grid(
+            row=1,
+            column=0,
+            sticky="ew",
+            padx=15,
+            pady=(0, 15)
+        )
+
+        ctk.CTkLabel(
+            self.token_config_frame,
+            text="Columna número:"
+        ).grid(
+            row=0,
+            column=0,
+            padx=15,
+            pady=10,
+            sticky="w"
+        )
+
+        self.combo_token_numero = ctk.CTkComboBox(
+            self.token_config_frame,
+            values=[],
+            state="disabled"
+        )
+
+        self.combo_token_numero.grid(
+            row=0,
+            column=1,
+            padx=15,
+            pady=10,
+            sticky="w"
+        )
+
+        ctk.CTkLabel(
+            self.token_config_frame,
+            text="Columna enlace:"
+        ).grid(
+            row=1,
+            column=0,
+            padx=15,
+            pady=10,
+            sticky="w"
+        )
+
+        self.combo_token_enlace = ctk.CTkComboBox(
+            self.token_config_frame,
+            values=[],
+            state="disabled"
+        )
+
+        self.combo_token_enlace.grid(
+            row=1,
+            column=1,
+            padx=15,
+            pady=10,
+            sticky="w"
+        )
+
+        self.btn_generar_tokens = ctk.CTkButton(
+            self.token_config_frame,
+            text="Generar archivo",
+            command=self.procesar_tokens,
+            state="disabled"
+        )
+
+        self.btn_generar_tokens.grid(
+            row=2,
+            column=0,
+            columnspan=2,
+            pady=15
+        )
+
+        self.lbl_token_estado = ctk.CTkLabel(
+            self.tab_tokens,
+            text="Esperando selección de archivo."
+        )
+
+        self.lbl_token_estado.grid(
+            row=2,
+            column=0,
+            pady=10
+        )
+        
         
     # -----------------------------------------------------------------------
     # Eventos
@@ -393,8 +599,8 @@ class MainWindow(ctk.CTk):
 
     def seleccionar_archivo(self) -> None:
         ruta_archivo = filedialog.askopenfilename(
-            title="Seleccionar CSV",
-            filetypes=CSV_FILE_TYPES,
+            title="Seleccionar archivo",
+            filetypes=DATA_FILE_TYPES,
         )
 
         if not ruta_archivo:
@@ -407,7 +613,7 @@ class MainWindow(ctk.CTk):
 
         def worker() -> None:
             try:
-                info, df = cargar_csv(ruta_archivo)
+                info, df = cargar_archivo(ruta_archivo)
                 self.after(0, lambda: self._on_archivo_cargado(info, df))
             except Exception as error:
                 self.after(0, lambda: self._on_archivo_error(str(error)))
@@ -435,12 +641,130 @@ class MainWindow(ctk.CTk):
         self.lbl_estado.configure(text=f"Error al leer el archivo: {mensaje}")
         self._habilitar_controles(True)
 
+    def seleccionar_archivo_token(self) -> None:
+
+        ruta_archivo = filedialog.askopenfilename(
+            title="Seleccionar archivo",
+            filetypes=DATA_FILE_TYPES,
+        )
+
+        if not ruta_archivo:
+            return
+
+        self.ruta_archivo_token = ruta_archivo
+
+        self.lbl_token_archivo.configure(
+            text=Path(ruta_archivo).name
+        )
+
+        self.lbl_token_estado.configure(
+            text="Leyendo archivo..."
+        )
+
+        try:
+            info, df = cargar_archivo(ruta_archivo)
+
+            self.df_token = df
+
+            columnas = info["columnas"]
+
+            self.combo_token_numero.configure(
+                values=columnas,
+                state="readonly"
+            )
+
+            self.combo_token_enlace.configure(
+                values=columnas,
+                state="readonly"
+            )
+
+            if columnas:
+                self.combo_token_numero.set(
+                    columnas[0]
+                )
+
+                self.combo_token_enlace.set(
+                    columnas[-1]
+                )
+
+            self.btn_generar_tokens.configure(
+                state="normal"
+            )
+
+            self.lbl_token_estado.configure(
+                text=f"{info['registros']:,} registros cargados."
+            )
+
+        except Exception as error:
+
+            self.df_token = None
+
+            self.lbl_token_estado.configure(
+                text=f"Error: {error}"
+            )
+
+    def procesar_tokens(self) -> None:
+
+        if (
+            self.df_token is None
+            or self.ruta_archivo_token is None
+        ):
+            return
+
+        columna_numero = (
+            self.combo_token_numero.get()
+        )
+
+        columna_enlace = (
+            self.combo_token_enlace.get()
+        )
+
+        try:
+            ruta = generar_archivo_tokens(
+                self.df_token,
+                self.ruta_archivo_token,
+                columna_numero,
+                columna_enlace
+            )
+
+            self.lbl_token_estado.configure(
+                text=f"Archivo generado: {ruta.name}"
+            )
+
+        except FileExistsError:
+
+            confirmar = messagebox.askyesno(
+                "Archivo existente",
+                "El archivo ya existe. ¿Deseas sobrescribirlo?"
+            )
+
+            if not confirmar:
+                return
+
+            ruta = generar_archivo_tokens(
+                self.df_token,
+                self.ruta_archivo_token,
+                columna_numero,
+                columna_enlace,
+                sobrescribir=True
+            )
+
+            self.lbl_token_estado.configure(
+                text=f"Archivo generado: {ruta.name}"
+            )
+
+        except Exception as error:
+
+            self.lbl_token_estado.configure(
+                text=f"Error: {error}"
+            )
+
     def procesar(self) -> None:
         if self.procesando:
             return
 
         if self.ruta_archivo is None or self.df is None:
-            self.lbl_estado.configure(text="Debe seleccionar un archivo CSV.")
+            self.lbl_estado.configure(text="Debe seleccionar un archivo.")
             return
 
         columnas = self.obtener_columnas_seleccionadas()
