@@ -18,6 +18,7 @@ Herramienta de escritorio desarrollada en Python para limpiar y preparar archivo
 - Seleccionar qué columnas exportar.
 - Modo **Genérico** para seleccionar automáticamente `nombre`, `email` y `token` en el orden requerido.
 - Modo **Personalizado** para seleccionar, renombrar y reordenar columnas manualmente.
+- Extraer tokens de una columna para poder rastrear y exluirlos de otro archivo.
 - Renombrar columnas antes de exportar.
 - Reordenar columnas con los botones ▲ / ▼.
 - Dividir el archivo en 2 a 5 partes.

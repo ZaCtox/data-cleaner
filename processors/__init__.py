@@ -1,16 +1,16 @@
 from processors.csv_processor import (
-    CsvInfo,
+    FileInfo,
     ValidationError,
-    cargar_csv,
+    cargar_archivo,
     procesar_csv,
     procesar_csv_dividido,
     validar_renombres,
 )
 
 __all__ = [
-    "CsvInfo",
+    "FileInfo",
     "ValidationError",
-    "cargar_csv",
+    "cargar_archivo",
     "procesar_csv",
     "procesar_csv_dividido",
     "validar_renombres",

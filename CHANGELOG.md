@@ -7,6 +7,32 @@ y este proyecto sigue el versionado semántico.
 
 ---
 
+## [0.4.1] - 2026-08-19
+
+### Agregado
+- Nueva pestaña **Extraer token**.
+- Extracción automática de tokens desde enlaces que contienen la ruta `/token/`.
+- Selección de la columna que contiene el número y de la columna que contiene el enlace.
+- Generación de un CSV con las columnas `numero` y `token`.
+- Soporte de lectura de archivos `.xlsx` mediante `openpyxl`.
+- Soporte de lectura de archivos `.xls` mediante `xlrd`.
+
+### Mejorado
+- Se reorganizó la interfaz mediante pestañas para separar **Preparar archivo** y **Extraer token**.
+- Se unificó la carga de archivos CSV y Excel mediante una misma función.
+- Los selectores de archivo permiten trabajar con `.csv`, `.xlsx` y `.xls`.
+
+### Dependencias
+- Agregada `openpyxl` para lectura de archivos `.xlsx`.
+- Agregada `xlrd` para lectura de archivos `.xls`.
+
+### Corregido
+- Actualización de `CsvInfo` a `FileInfo` tras generalizar la carga de archivos.
+- Corrección de la jerarquía entre `main_frame`, `CTkTabview` y sus pestañas.
+- Ajustes en los filtros del selector de archivos para CSV y Excel.
+
+---
+
 ## [0.4.0] - 2026-08-18
 
 ### Agregado
